@@ -2,7 +2,8 @@ version: "3.8"
 
 services:
   jenkins:
-    image: jenkins-trivy
+    build: ./jenkins-trivy
+    container_name: jenkins-trivy
     ports:
       - "8080:8080"    # UI Jenkins
       - "50000:50000"  # Agent JNLP
@@ -27,3 +28,4 @@ volumes:
   jenkins_home1:
   sonarqube_data:
   sonarqube_extensions:
+

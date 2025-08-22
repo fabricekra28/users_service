@@ -4,12 +4,17 @@ from sqlalchemy.orm import declarative_base, sessionmaker, Session
 from sqlalchemy.sql import func
 from pydantic import BaseModel
 import os
+import httpx
 from dotenv import load_dotenv
 
 load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     raise RuntimeError("DATABASE_URL not set")
+
+# URLs des autres services (à configurer selon votre environnement)
+USERS_SERVICE_URL = os.getenv("USERS_SERVICE_URL", "http://localhost:8001")
+PRODUCTS_SERVICE_URL = os.getenv("PRODUCTS_SERVICE_URL", "http://localhost:8002")
 
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
@@ -41,19 +46,52 @@ class OrderResponse(BaseModel):
     id: int
     user_id: int
     product_id: int
+    user_name: str = None
+    product_name: str = None
     created_at: str
 
     class Config:
         orm_mode = True
+
+async def get_user_name(user_id: int):
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{USERS_SERVICE_URL}/users/{user_id}")
+            if response.status_code == 200:
+                user_data = response.json()
+                return user_data.get('name', f'Utilisateur #{user_id}')
+    except Exception:
+        pass
+    return f'Utilisateur #{user_id}'
+
+async def get_product_name(product_id: int):
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{PRODUCTS_SERVICE_URL}/products/{product_id}")
+            if response.status_code == 200:
+                product_data = response.json()
+                return product_data.get('name', f'Produit #{product_id}')
+    except Exception:
+        pass
+    return f'Produit #{product_id}'
 
 @app.get("/")
 async def root():
     return {"message": "Orders Service"}
 
 @app.get("/orders", response_model=list[OrderResponse])
-def list_orders(db: Session = Depends(get_db)):
+async def list_orders(db: Session = Depends(get_db)):
     orders = db.query(Order).all()
-    return orders
+    
+    # Récupérer les noms des utilisateurs et produits
+    orders_with_names = []
+    for order in orders:
+        order_dict = OrderResponse.from_orm(order).dict()
+        order_dict['user_name'] = await get_user_name(order.user_id)
+        order_dict['product_name'] = await get_product_name(order.product_id)
+        orders_with_names.append(order_dict)
+    
+    return orders_with_names
 
 @app.post("/orders", response_model=OrderResponse)
 def create_order(order: OrderCreate, db: Session = Depends(get_db)):
@@ -64,11 +102,16 @@ def create_order(order: OrderCreate, db: Session = Depends(get_db)):
     return db_order
 
 @app.get("/orders/{order_id}", response_model=OrderResponse)
-def get_order(order_id: int, db: Session = Depends(get_db)):
+async def get_order(order_id: int, db: Session = Depends(get_db)):
     order = db.get(Order, order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
-    return order
+    
+    order_dict = OrderResponse.from_orm(order).dict()
+    order_dict['user_name'] = await get_user_name(order.user_id)
+    order_dict['product_name'] = await get_product_name(order.product_id)
+    
+    return order_dict
 
 @app.put("/orders/{order_id}", response_model=OrderResponse)
 def update_order(order_id: int, order: OrderCreate, db: Session = Depends(get_db)):

@@ -163,16 +163,24 @@
                         <label for="price">Prix:</label>
                         <input type="number" step="0.01" id="price" name="price" value="{{ item.price }}" required>
                     </div>
-                {% elif service == "orders" %}
-                    <div class="form-group">
-                        <label for="user_id">ID Utilisateur:</label>
-                        <input type="number" id="user_id" name="user_id" value="{{ item.user_id }}" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="product_id">ID Produit:</label>
-                        <input type="number" id="product_id" name="product_id" value="{{ item.product_id }}" required>
-                    </div>
-                {% endif %}
+                      {% elif service == "orders" %}
+                          <div class="form-group">
+                              <label for="user_id">Utilisateur:</label>
+                              <select id="user_id" name="user_id" required>
+                                  {% for user in users %}
+                                  <option value="{{ user.id }}" {% if item and item.user_id == user.id %}selected{% endif %}>{{ user.name }}</option>
+                                  {% endfor %}
+                              </select>
+                          </div>
+                          <div class="form-group">
+                              <label for="product_id">Produit:</label>
+                              <select id="product_id" name="product_id" required>
+                                  {% for product in products %}
+                                  <option value="{{ product.id }}" {% if item and item.product_id == product.id %}selected{% endif %}>{{ product.name }} - {{ product.price }}€</option>
+                                  {% endfor %}
+                              </select>
+                          </div>
+                      {% endif %}
                 
                 <button type="submit" class="btn">Mettre à jour</button>
                 <a href="/{{ service }}/" class="btn btn-secondary">Retour à la liste</a>
