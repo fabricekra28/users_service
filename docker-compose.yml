@@ -1,0 +1,73 @@
+version: "3.9"
+services:
+  db:
+    image: postgres:13
+    container_name: postgres_micro_test
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: microservices_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - microservices-network
+
+  gateway:
+    build: ./gateway
+    ports:
+      - "8000:8000"
+    environment:
+      USERS_URL: http://users:8001
+      PRODUCTS_URL: http://products:8002
+      ORDERS_URL: http://orders:8003
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/microservices_db
+    depends_on:
+      - db
+      - users
+      - products
+      - orders
+    networks:
+      - microservices-network
+
+  users:
+    build: ./users
+    ports:
+      - "8001:8001"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/microservices_db
+    depends_on:
+      - db
+    networks:
+      - microservices-network
+
+  products:
+    build: ./products
+    ports:
+      - "8002:8002"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/microservices_db
+    depends_on:
+      - db
+    networks:
+      - microservices-network
+
+  orders:
+    build: ./orders
+    ports:
+      - "8003:8003"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/microservices_db
+    depends_on:
+      - db
+    networks:
+      - microservices-network
+
+volumes:
+  postgres_data:
+
+networks:
+  microservices-network:
+    driver: bridge
