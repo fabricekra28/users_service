@@ -1,22 +1,25 @@
 FROM python:3.11-slim
 
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y netcat-openbsd && rm -rf /var/lib/apt/lists/*
-
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends netcat-openbsd \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
-RUN  apt-get update && apt-get install -y build-essential python3-dev
 
-RUN pip install --upgrade pip
-
-RUN pip install --no-cache-dir -r requirements.txt
-RUN pip install email_validator
-
+RUN python -m pip install --upgrade pip \
+    && python -m pip install --no-cache-dir -r requirements.txt \
+    && python -m pip check
 
 COPY . .
 
-COPY start.sh /app/start.sh
 RUN chmod +x /app/start.sh
+
+EXPOSE 8001
 
 CMD ["/app/start.sh", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"]
